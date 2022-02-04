@@ -366,6 +366,7 @@ class Visualizer:
             instance_mode (ColorMode): defines one of the pre-defined style for drawing
                 instances on an image.
         """
+        self.rgb_vals = img_rgb
         self.img = np.asarray(img_rgb).clip(0, 255).astype(np.uint8)
         if metadata is None:
             metadata = MetadataCatalog.get("__nonexist__")
@@ -379,6 +380,15 @@ class Visualizer:
         )
         self._instance_mode = instance_mode
         self.keypoint_threshold = _KEYPOINT_THRESHOLD
+
+        self.image_score = None
+        self.image_boxes = None
+
+    def get_image_score(self):
+      return self.image_score
+
+    def get_image_boxes(self):
+      return self.image_boxes
 
     def draw_instance_predictions(self, predictions):
         """
@@ -397,6 +407,9 @@ class Visualizer:
         classes = predictions.pred_classes.tolist() if predictions.has("pred_classes") else None
         labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
         keypoints = predictions.pred_keypoints if predictions.has("pred_keypoints") else None
+
+        self.image_score = scores
+        self.image_boxes = boxes
 
         if predictions.has("pred_masks"):
             masks = np.asarray(predictions.pred_masks)
@@ -431,6 +444,34 @@ class Visualizer:
             assigned_colors=colors,
             alpha=alpha,
         )
+        return self.output
+
+    def draw_masked_area(self, predictions):
+        boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
+        scores = predictions.scores if predictions.has("scores") else None
+        classes = predictions.pred_classes.tolist() if predictions.has("pred_classes") else None
+        labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
+        keypoints = predictions.pred_keypoints if predictions.has("pred_keypoints") else None
+
+        self.image_score = scores
+        self.image_boxes = boxes
+
+        if predictions.has("pred_masks"):
+            masks = np.asarray(predictions.pred_masks)
+            masks = [GenericMask(x, self.output.height, self.output.width) for x in masks]
+        else:
+            masks = None
+
+        if self._instance_mode == ColorMode.IMAGE_BW:
+            self.output.reset_image(
+                self._create_black_image(
+                    (predictions.pred_masks.any(dim=0) > 0).numpy()
+                    if predictions.has("pred_masks")
+                    else None
+                )
+            )
+            alpha = 0.3
+
         return self.output
 
     def draw_sem_seg(self, sem_seg, area_threshold=None, alpha=0.8):
@@ -1173,6 +1214,12 @@ class Visualizer:
         """
         img_bw = self.img.astype("f4").mean(axis=2)
         img_bw = np.stack([img_bw] * 3, axis=2)
+        if mask is not None:
+            img_bw[mask] = self.img[mask]
+        return img_bw
+
+    def _create_black_image(self, mask=None):
+        img_bw = np.asarray(self.rgb_vals).clip(0, 0).astype(np.uint8)
         if mask is not None:
             img_bw[mask] = self.img[mask]
         return img_bw

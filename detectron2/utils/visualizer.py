@@ -1219,7 +1219,7 @@ class Visualizer:
         return img_bw
 
     def _create_black_image(self, mask=None):
-        img_bw = np.asarray(self.rgb_vals).clip(0, 0).astype(np.uint8)
+        img_bw = np.asarray(self.rgb_vals).clip(255, 255).astype(np.uint8)
         if mask is not None:
             img_bw[mask] = self.img[mask]
         return img_bw

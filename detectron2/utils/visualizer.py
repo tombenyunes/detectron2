@@ -446,7 +446,7 @@ class Visualizer:
         )
         return self.output
 
-    def draw_masked_area(self, predictions):
+    def draw_masked_area(self, predictions, fill_background):
         boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
         scores = predictions.scores if predictions.has("scores") else None
         classes = predictions.pred_classes.tolist() if predictions.has("pred_classes") else None
@@ -462,15 +462,16 @@ class Visualizer:
         else:
             masks = None
 
-        if self._instance_mode == ColorMode.IMAGE_BW:
-            self.output.reset_image(
-                self._create_black_image(
-                    (predictions.pred_masks.any(dim=0) > 0).numpy()
-                    if predictions.has("pred_masks")
-                    else None
+        if (fill_background):
+            if self._instance_mode == ColorMode.IMAGE_BW:
+                self.output.reset_image(
+                    self._create_black_image(
+                        (predictions.pred_masks.any(dim=0) > 0).numpy()
+                        if predictions.has("pred_masks")
+                        else None
+                    )
                 )
-            )
-            alpha = 0.3
+                alpha = 0.3
 
         return self.output
 
